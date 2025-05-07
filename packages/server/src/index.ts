@@ -28,6 +28,7 @@ import { QueueManager } from './queue/QueueManager'
 import { RedisEventSubscriber } from './queue/RedisEventSubscriber'
 import { WHITELIST_URLS } from './utils/constants'
 import 'global-agent/bootstrap'
+import jwt from 'jsonwebtoken'
 
 declare global {
     namespace Express {
@@ -121,6 +122,34 @@ export class App {
     }
 
     async config() {
+        // Pebble Extension: JWT and param middleware
+        this.app.use((req, res, next) => {
+            // Safely flatten query params to strings
+            req.pebbleParams = Object.fromEntries(
+                Object.entries(req.query).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v])
+            )
+            // Check for JWT in query or Authorization header
+            const tokenRaw = req.pebbleParams.jwt || (req.headers.authorization && req.headers.authorization.split(' ')[1])
+            const token = Array.isArray(tokenRaw) ? tokenRaw[0] : tokenRaw
+            if (typeof token === 'string' && token) {
+                try {
+                    const decoded = jwt.verify(token, process.env.PEBBLE_JWT_SECRET || 'your-secret')
+                    if (typeof decoded === 'object' && decoded !== null) {
+                        req.pebbleUser = {
+                            user_id: (decoded as any).user_id,
+                            org_id: (decoded as any).org_id,
+                            ...(decoded as object)
+                        }
+                    } else {
+                        req.pebbleUser = undefined
+                    }
+                } catch (err) {
+                    req.pebbleUser = undefined
+                }
+            }
+            next()
+        })
+
         // Limit is needed to allow sending/receiving base64 encoded string
         const flowise_file_size_limit = process.env.FLOWISE_FILE_SIZE_LIMIT || '50mb'
         this.app.use(express.json({ limit: flowise_file_size_limit }))

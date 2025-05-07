@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Outlet } from 'react-router-dom'
 
@@ -13,8 +13,10 @@ import { drawerWidth, headerHeight } from '@/store/constant'
 import { SET_MENU } from '@/store/actions'
 
 // styles
-const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(({ theme, open }) => ({
+const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' && prop !== 'hideHeader' })
+(({ theme, open, hideHeader }) => ({
     ...theme.typography.mainContent,
+    marginTop: hideHeader ? 0 : headerHeight,
     ...(!open && {
         backgroundColor: 'transparent',
         borderBottomLeftRadius: 0,
@@ -54,11 +56,24 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(({
     })
 }))
 
+// ==============================|| PEBBLE EXTENSION: QUERY PARAM PARSER ||============================== //
+function getPebbleUiFlags() {
+    if (typeof window === 'undefined') return {}
+    const params = new URLSearchParams(window.location.search)
+    const flags = {}
+    for (const [key, value] of params.entries()) {
+        flags[key] = value
+    }
+    return flags
+}
+
 // ==============================|| MAIN LAYOUT ||============================== //
 
 const MainLayout = () => {
     const theme = useTheme()
     const matchDownMd = useMediaQuery(theme.breakpoints.down('lg'))
+    // Pebble Extension: UI flags from query params
+    const [pebbleUiFlags] = useState(getPebbleUiFlags())
 
     // Handle left drawer
     const leftDrawerOpened = useSelector((state) => state.customization.opened)
@@ -76,26 +91,30 @@ const MainLayout = () => {
         <Box sx={{ display: 'flex' }}>
             <CssBaseline />
             {/* header */}
-            <AppBar
-                enableColorOnDark
-                position='fixed'
-                color='inherit'
-                elevation={0}
-                sx={{
-                    bgcolor: theme.palette.background.default,
-                    transition: leftDrawerOpened ? theme.transitions.create('width') : 'none'
-                }}
-            >
-                <Toolbar sx={{ height: `${headerHeight}px`, borderBottom: '1px solid', borderColor: theme.palette.primary[200] + 75 }}>
-                    <Header handleLeftDrawerToggle={handleLeftDrawerToggle} />
-                </Toolbar>
-            </AppBar>
+            {pebbleUiFlags.hideHeader !== '1' && (
+                <AppBar
+                    enableColorOnDark
+                    position='fixed'
+                    color='inherit'
+                    elevation={0}
+                    sx={{
+                        bgcolor: theme.palette.background.default,
+                        transition: leftDrawerOpened ? theme.transitions.create('width') : 'none'
+                    }}
+                >
+                    <Toolbar sx={{ height: `${headerHeight}px`, borderBottom: '1px solid', borderColor: theme.palette.primary[200] + 75 }}>
+                        <Header handleLeftDrawerToggle={handleLeftDrawerToggle} />
+                    </Toolbar>
+                </AppBar>
+            )}
 
             {/* drawer */}
-            <Sidebar drawerOpen={leftDrawerOpened} drawerToggle={handleLeftDrawerToggle} />
+            {pebbleUiFlags.hideSidebar !== '1' && (
+                <Sidebar drawerOpen={leftDrawerOpened} drawerToggle={handleLeftDrawerToggle} />
+            )}
 
             {/* main content */}
-            <Main theme={theme} open={leftDrawerOpened}>
+            <Main theme={theme} open={leftDrawerOpened} hideHeader={pebbleUiFlags.hideHeader === '1'}>
                 <Outlet />
             </Main>
         </Box>
