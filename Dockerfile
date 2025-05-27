@@ -35,4 +35,5 @@ RUN pnpm build
 
 EXPOSE 3000
 
+# Updated for deployment testing
 CMD [ "pnpm", "start" ]
